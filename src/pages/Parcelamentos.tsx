@@ -1,47 +1,46 @@
-import { useFinanceData, formatCurrency, genId, type Parcelamento } from "@/lib/finance-store";
+import { useFinanceData, formatCurrency, type Parcelamento } from "@/lib/finance-store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
-import { Plus, Trash2, CreditCard } from "lucide-react";
+import { Plus, Trash2, CreditCard, Loader2 } from "lucide-react";
 import { useState } from "react";
 
 export default function Parcelamentos() {
-  const { data, update } = useFinanceData();
+  const { parcelamentos, addParcelamento, updateParcelamento, deleteParcelamento, loading } = useFinanceData();
   const [open, setOpen] = useState(false);
 
-  const addParcelamento = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleAdd = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     const parcelas = Number(fd.get("parcelas"));
     const valorTotal = Number(fd.get("valorTotal"));
-    const p: Parcelamento = {
-      id: genId(),
+    await addParcelamento({
       descricao: fd.get("descricao") as string,
       valorTotal,
       parcelas,
       parcelasPagas: Number(fd.get("parcelasPagas")),
       valorParcela: valorTotal / parcelas,
-    };
-    update((d) => ({ ...d, parcelamentos: [...d.parcelamentos, p] }));
+    });
     setOpen(false);
   };
 
-  const removeParcelamento = (id: string) => {
-    update((d) => ({ ...d, parcelamentos: d.parcelamentos.filter((p) => p.id !== id) }));
+  const pagarParcela = (p: Parcelamento) => {
+    if (p.parcelasPagas < p.parcelas) {
+      updateParcelamento({ ...p, parcelasPagas: p.parcelasPagas + 1 });
+    }
   };
 
-  const pagarParcela = (id: string) => {
-    update((d) => ({
-      ...d,
-      parcelamentos: d.parcelamentos.map((p) =>
-        p.id === id && p.parcelasPagas < p.parcelas ? { ...p, parcelasPagas: p.parcelasPagas + 1 } : p
-      ),
-    }));
-  };
+  const totalMensal = parcelamentos.reduce((s, p) => s + (p.parcelasPagas < p.parcelas ? p.valorParcela : 0), 0);
 
-  const totalMensal = data.parcelamentos.reduce((s, p) => s + (p.parcelasPagas < p.parcelas ? p.valorParcela : 0), 0);
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -56,7 +55,7 @@ export default function Parcelamentos() {
           </DialogTrigger>
           <DialogContent>
             <DialogHeader><DialogTitle>Novo Parcelamento</DialogTitle></DialogHeader>
-            <form onSubmit={addParcelamento} className="space-y-4">
+            <form onSubmit={handleAdd} className="space-y-4">
               <div><Label>Descrição</Label><Input name="descricao" required /></div>
               <div className="grid grid-cols-2 gap-3">
                 <div><Label>Valor Total (R$)</Label><Input name="valorTotal" type="number" step="0.01" required /></div>
@@ -70,7 +69,7 @@ export default function Parcelamentos() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {data.parcelamentos.map((p) => {
+        {parcelamentos.map((p) => {
           const pct = (p.parcelasPagas / p.parcelas) * 100;
           const restantes = p.parcelas - p.parcelasPagas;
           return (
@@ -85,7 +84,7 @@ export default function Parcelamentos() {
                     <p className="text-xs text-muted-foreground">{p.parcelasPagas}/{p.parcelas} parcelas</p>
                   </div>
                 </div>
-                <Button variant="ghost" size="icon" onClick={() => removeParcelamento(p.id)}>
+                <Button variant="ghost" size="icon" onClick={() => deleteParcelamento(p.id)}>
                   <Trash2 className="h-4 w-4 text-destructive" />
                 </Button>
               </div>
@@ -108,7 +107,7 @@ export default function Parcelamentos() {
               </div>
 
               {restantes > 0 && (
-                <Button variant="outline" className="w-full mt-3" size="sm" onClick={() => pagarParcela(p.id)}>
+                <Button variant="outline" className="w-full mt-3" size="sm" onClick={() => pagarParcela(p)}>
                   Registrar Pagamento
                 </Button>
               )}
