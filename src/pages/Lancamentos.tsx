@@ -1,47 +1,49 @@
-import { useFinanceData, formatCurrency, MESES, CATEGORIAS, genId, type Lancamento } from "@/lib/finance-store";
+import { useFinanceData, formatCurrency, MESES, CATEGORIAS, type Lancamento } from "@/lib/finance-store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Loader2 } from "lucide-react";
 import { useState } from "react";
 
 const catKeys = Object.keys(CATEGORIAS) as Lancamento["categoria"][];
 
 export default function Lancamentos() {
-  const { data, update, lancamentosMes, entradas, totalSaidas, saldo } = useFinanceData();
+  const { mesSelecionado, setMesSelecionado, lancamentosMes, entradas, totalSaidas, saldo, addLancamento, deleteLancamento, loading } = useFinanceData();
   const [open, setOpen] = useState(false);
   const [cat, setCat] = useState<Lancamento["categoria"]>("entrada");
 
-  const addLancamento = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleAdd = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
-    const l: Lancamento = {
-      id: genId(),
+    await addLancamento({
       descricao: fd.get("descricao") as string,
       valor: Number(fd.get("valor")),
-      categoria: fd.get("categoria") as Lancamento["categoria"],
-      mes: data.mesSelecionado,
-    };
-    update((d) => ({ ...d, lancamentos: [...d.lancamentos, l] }));
+      categoria: cat,
+      mes: mesSelecionado,
+    });
     setOpen(false);
   };
 
-  const removeLancamento = (id: string) => {
-    update((d) => ({ ...d, lancamentos: d.lancamentos.filter((l) => l.id !== id) }));
-  };
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h2 className="text-2xl font-display font-bold">Lançamentos Mensais</h2>
-          <p className="text-muted-foreground text-sm">{MESES[data.mesSelecionado]}</p>
+          <p className="text-muted-foreground text-sm">{MESES[mesSelecionado]}</p>
         </div>
         <div className="flex gap-2">
-          <Select value={String(data.mesSelecionado)} onValueChange={(v) => update((d) => ({ ...d, mesSelecionado: Number(v) }))}>
+          <Select value={String(mesSelecionado)} onValueChange={(v) => setMesSelecionado(Number(v))}>
             <SelectTrigger className="w-[160px]">
               <SelectValue />
             </SelectTrigger>
@@ -57,7 +59,7 @@ export default function Lancamentos() {
             </DialogTrigger>
             <DialogContent>
               <DialogHeader><DialogTitle>Novo Lançamento</DialogTitle></DialogHeader>
-              <form onSubmit={addLancamento} className="space-y-4">
+              <form onSubmit={handleAdd} className="space-y-4">
                 <div>
                   <Label>Descrição</Label>
                   <Input name="descricao" required />
@@ -68,7 +70,7 @@ export default function Lancamentos() {
                 </div>
                 <div>
                   <Label>Categoria</Label>
-                  <Select name="categoria" value={cat} onValueChange={(v) => setCat(v as Lancamento["categoria"])}>
+                  <Select value={cat} onValueChange={(v) => setCat(v as Lancamento["categoria"])}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {catKeys.map((k) => (
@@ -76,7 +78,6 @@ export default function Lancamentos() {
                       ))}
                     </SelectContent>
                   </Select>
-                  <input type="hidden" name="categoria" value={cat} />
                 </div>
                 <Button type="submit" className="w-full">Adicionar</Button>
               </form>
@@ -126,7 +127,7 @@ export default function Lancamentos() {
                         <span className="text-sm">{l.descricao}</span>
                         <div className="flex items-center gap-2">
                           <span className="font-medium text-sm">{formatCurrency(l.valor)}</span>
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => removeLancamento(l.id)}>
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => deleteLancamento(l.id)}>
                             <Trash2 className="h-3.5 w-3.5 text-destructive" />
                           </Button>
                         </div>

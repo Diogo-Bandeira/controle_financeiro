@@ -1,11 +1,19 @@
 import { useFinanceData, formatCurrency, MESES } from "@/lib/finance-store";
-import { TrendingUp, TrendingDown, Wallet, Church } from "lucide-react";
+import { TrendingUp, TrendingDown, Wallet, Church, Loader2 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 
 export default function Dashboard() {
-  const { data, update, entradas, totalSaidas, saldo, dizimos, contasFixas, cartoes, variaveis } = useFinanceData();
+  const { metas, mesSelecionado, setMesSelecionado, entradas, totalSaidas, saldo, dizimos, contasFixas, cartoes, variaveis, loading } = useFinanceData();
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   const necessidades = contasFixas + dizimos;
   const desejos = cartoes + variaveis;
@@ -17,19 +25,16 @@ export default function Dashboard() {
     { name: "Variáveis", value: variaveis, color: "hsl(152, 60%, 40%)" },
   ].filter((d) => d.value > 0);
 
-  const topMetas = data.metas.slice(0, 3);
+  const topMetas = metas.slice(0, 3);
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h2 className="text-2xl font-display font-bold text-foreground">Visão Geral</h2>
-          <p className="text-muted-foreground text-sm">Resumo financeiro de {MESES[data.mesSelecionado]}</p>
+          <p className="text-muted-foreground text-sm">Resumo financeiro de {MESES[mesSelecionado]}</p>
         </div>
-        <Select
-          value={String(data.mesSelecionado)}
-          onValueChange={(v) => update((d) => ({ ...d, mesSelecionado: Number(v) }))}
-        >
+        <Select value={String(mesSelecionado)} onValueChange={(v) => setMesSelecionado(Number(v))}>
           <SelectTrigger className="w-[180px]">
             <SelectValue />
           </SelectTrigger>
@@ -140,24 +145,28 @@ export default function Dashboard() {
         {/* Metas preview */}
         <div className="finance-card">
           <h3 className="section-title mb-4">Progresso das Metas</h3>
-          <div className="space-y-4">
-            {topMetas.map((meta) => {
-              const pct = Math.min((meta.valorAtual / meta.valorMeta) * 100, 100);
-              return (
-                <div key={meta.id}>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span className="font-medium">{meta.nome}</span>
-                    <span className="text-muted-foreground">{pct.toFixed(0)}%</span>
+          {topMetas.length > 0 ? (
+            <div className="space-y-4">
+              {topMetas.map((meta) => {
+                const pct = meta.valorMeta > 0 ? Math.min((meta.valorAtual / meta.valorMeta) * 100, 100) : 0;
+                return (
+                  <div key={meta.id}>
+                    <div className="flex justify-between text-sm mb-1">
+                      <span className="font-medium">{meta.nome}</span>
+                      <span className="text-muted-foreground">{pct.toFixed(0)}%</span>
+                    </div>
+                    <Progress value={pct} className="h-2.5" />
+                    <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                      <span>{formatCurrency(meta.valorAtual)}</span>
+                      <span>{formatCurrency(meta.valorMeta)}</span>
+                    </div>
                   </div>
-                  <Progress value={pct} className="h-2.5" />
-                  <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                    <span>{formatCurrency(meta.valorAtual)}</span>
-                    <span>{formatCurrency(meta.valorMeta)}</span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-muted-foreground text-sm">Nenhuma meta cadastrada.</p>
+          )}
         </div>
       </div>
     </div>

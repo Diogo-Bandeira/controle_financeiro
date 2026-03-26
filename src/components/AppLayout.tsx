@@ -9,8 +9,11 @@ import {
   Menu,
   X,
   Church,
+  LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
+import { Button } from "@/components/ui/button";
 
 const navItems = [
   { to: "/", label: "Visão Geral", icon: LayoutDashboard },
@@ -23,6 +26,9 @@ const navItems = [
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const [open, setOpen] = useState(false);
+  const { user, signOut } = useAuth();
+
+  const displayName = user?.user_metadata?.full_name || user?.email?.split("@")[0] || "Usuário";
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row">
@@ -57,6 +63,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 {item.label}
               </Link>
             ))}
+            <button
+              onClick={signOut}
+              className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors mt-4"
+            >
+              <LogOut className="h-5 w-5" />
+              Sair
+            </button>
           </nav>
         </div>
       )}
@@ -69,7 +82,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
           <div>
             <h1 className="font-display text-lg text-sidebar-foreground font-bold leading-tight">Finanças</h1>
-            <span className="text-xs text-sidebar-foreground/60 font-medium">IEPE • Família</span>
+            <span className="text-xs text-sidebar-foreground/60 font-medium">IEPE • {displayName}</span>
           </div>
         </div>
 
@@ -91,7 +104,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           ))}
         </nav>
 
-        <div className="mt-auto pt-4 border-t border-sidebar-border">
+        <div className="mt-auto pt-4 border-t border-sidebar-border space-y-3">
+          <Button
+            variant="ghost"
+            className="w-full justify-start text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
+            onClick={signOut}
+          >
+            <LogOut className="h-4 w-4 mr-2" />
+            Sair
+          </Button>
           <p className="text-xs text-sidebar-foreground/40 text-center">
             Palavra Eterna © {new Date().getFullYear()}
           </p>

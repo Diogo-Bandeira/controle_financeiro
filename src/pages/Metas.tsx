@@ -1,38 +1,42 @@
-import { useFinanceData, formatCurrency, genId, type Meta } from "@/lib/finance-store";
+import { useFinanceData, formatCurrency, type Meta } from "@/lib/finance-store";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Plus, Pencil, Trash2, Target } from "lucide-react";
+import { Plus, Pencil, Trash2, Target, Loader2 } from "lucide-react";
 import { useState } from "react";
 
 export default function Metas() {
-  const { data, update } = useFinanceData();
+  const { metas, addMeta, updateMeta, deleteMeta, loading } = useFinanceData();
   const [editMeta, setEditMeta] = useState<Meta | null>(null);
   const [open, setOpen] = useState(false);
 
-  const saveMeta = (e: React.FormEvent<HTMLFormElement>) => {
+  const saveMeta = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
-    const meta: Meta = {
-      id: editMeta?.id || genId(),
+    const meta = {
       nome: fd.get("nome") as string,
       valorMeta: Number(fd.get("valorMeta")),
       valorAtual: Number(fd.get("valorAtual")),
       rendimento: Number(fd.get("rendimento")),
     };
-    update((d) => ({
-      ...d,
-      metas: editMeta ? d.metas.map((m) => (m.id === meta.id ? meta : m)) : [...d.metas, meta],
-    }));
+    if (editMeta) {
+      await updateMeta({ ...meta, id: editMeta.id });
+    } else {
+      await addMeta(meta);
+    }
     setOpen(false);
     setEditMeta(null);
   };
 
-  const deleteMeta = (id: string) => {
-    update((d) => ({ ...d, metas: d.metas.filter((m) => m.id !== id) }));
-  };
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -75,8 +79,8 @@ export default function Metas() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {data.metas.map((meta) => {
-          const pct = Math.min((meta.valorAtual / meta.valorMeta) * 100, 100);
+        {metas.map((meta) => {
+          const pct = meta.valorMeta > 0 ? Math.min((meta.valorAtual / meta.valorMeta) * 100, 100) : 0;
           const falta = Math.max(meta.valorMeta - meta.valorAtual, 0);
           return (
             <div key={meta.id} className="finance-card">

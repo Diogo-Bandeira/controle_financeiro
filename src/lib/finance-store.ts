@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 // Types
 export interface Meta {
@@ -14,7 +16,7 @@ export interface Lancamento {
   descricao: string;
   valor: number;
   categoria: "entrada" | "dizimo" | "conta_fixa" | "cartao" | "variavel";
-  mes: number; // 0-11
+  mes: number;
 }
 
 export interface Parcelamento {
@@ -34,75 +36,210 @@ export interface Prioridade {
   concluida: boolean;
 }
 
-export interface FinanceData {
-  metas: Meta[];
-  lancamentos: Lancamento[];
-  parcelamentos: Parcelamento[];
-  prioridades: Prioridade[];
-  mesSelecionado: number;
-}
-
-const STORAGE_KEY = "iepe-financas-data";
-
-const defaultData: FinanceData = {
-  metas: [
-    { id: "1", nome: "Reserva de Emergência", valorMeta: 50000, valorAtual: 12500, rendimento: 350 },
-    { id: "2", nome: "Viagem em Família", valorMeta: 15000, valorAtual: 4200, rendimento: 80 },
-    { id: "3", nome: "Novo Veículo", valorMeta: 80000, valorAtual: 22000, rendimento: 520 },
-    { id: "4", nome: "Reforma da Casa", valorMeta: 30000, valorAtual: 8700, rendimento: 190 },
-    { id: "5", nome: "Fundo Educacional", valorMeta: 20000, valorAtual: 6300, rendimento: 140 },
-  ],
-  lancamentos: [
-    { id: "l1", descricao: "Salário", valor: 8500, categoria: "entrada", mes: new Date().getMonth() },
-    { id: "l2", descricao: "Freelance", valor: 2000, categoria: "entrada", mes: new Date().getMonth() },
-    { id: "l3", descricao: "Dízimo", valor: 1050, categoria: "dizimo", mes: new Date().getMonth() },
-    { id: "l4", descricao: "Aluguel", valor: 2200, categoria: "conta_fixa", mes: new Date().getMonth() },
-    { id: "l5", descricao: "Energia", valor: 280, categoria: "conta_fixa", mes: new Date().getMonth() },
-    { id: "l6", descricao: "Internet", valor: 120, categoria: "conta_fixa", mes: new Date().getMonth() },
-    { id: "l7", descricao: "Cartão Visa", valor: 1800, categoria: "cartao", mes: new Date().getMonth() },
-    { id: "l8", descricao: "Supermercado", valor: 950, categoria: "variavel", mes: new Date().getMonth() },
-    { id: "l9", descricao: "Combustível", valor: 400, categoria: "variavel", mes: new Date().getMonth() },
-  ],
-  parcelamentos: [
-    { id: "p1", descricao: "Notebook", valorTotal: 4800, parcelas: 12, parcelasPagas: 5, valorParcela: 400 },
-    { id: "p2", descricao: "Celular", valorTotal: 3600, parcelas: 10, parcelasPagas: 3, valorParcela: 360 },
-  ],
-  prioridades: [
-    { id: "pr1", descricao: "Air Fryer", valor: 450, prioridade: "alta", concluida: false },
-    { id: "pr2", descricao: "Tênis de corrida", valor: 600, prioridade: "media", concluida: false },
-    { id: "pr3", descricao: "Fone Bluetooth", valor: 350, prioridade: "baixa", concluida: false },
-  ],
-  mesSelecionado: new Date().getMonth(),
-};
-
-function loadData(): FinanceData {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) return JSON.parse(stored);
-  } catch {}
-  return defaultData;
-}
-
-function saveData(data: FinanceData) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-}
-
 export function useFinanceData() {
-  const [data, setData] = useState<FinanceData>(loadData);
+  const { householdId } = useAuth();
+  const [metas, setMetas] = useState<Meta[]>([]);
+  const [lancamentos, setLancamentos] = useState<Lancamento[]>([]);
+  const [parcelamentos, setParcelamentos] = useState<Parcelamento[]>([]);
+  const [prioridades, setPrioridades] = useState<Prioridade[]>([]);
+  const [mesSelecionado, setMesSelecionado] = useState(new Date().getMonth());
+  const [loading, setLoading] = useState(true);
 
+  // Load all data from Supabase
   useEffect(() => {
-    saveData(data);
-  }, [data]);
+    if (!householdId) return;
 
-  const update = useCallback((updater: (prev: FinanceData) => FinanceData) => {
-    setData((prev) => {
-      const next = updater(prev);
-      return next;
-    });
+    const loadData = async () => {
+      setLoading(true);
+      const [metasRes, lancRes, parcRes, prioRes] = await Promise.all([
+        supabase.from("metas").select("*").eq("household_id", householdId),
+        supabase.from("lancamentos").select("*").eq("household_id", householdId),
+        supabase.from("parcelamentos").select("*").eq("household_id", householdId),
+        supabase.from("prioridades").select("*").eq("household_id", householdId),
+      ]);
+
+      setMetas(
+        (metasRes.data ?? []).map((m) => ({
+          id: m.id,
+          nome: m.nome,
+          valorMeta: Number(m.valor_meta),
+          valorAtual: Number(m.valor_atual),
+          rendimento: Number(m.rendimento),
+        }))
+      );
+      setLancamentos(
+        (lancRes.data ?? []).map((l) => ({
+          id: l.id,
+          descricao: l.descricao,
+          valor: Number(l.valor),
+          categoria: l.categoria as Lancamento["categoria"],
+          mes: l.mes,
+        }))
+      );
+      setParcelamentos(
+        (parcRes.data ?? []).map((p) => ({
+          id: p.id,
+          descricao: p.descricao,
+          valorTotal: Number(p.valor_total),
+          parcelas: p.parcelas,
+          parcelasPagas: p.parcelas_pagas,
+          valorParcela: Number(p.valor_parcela),
+        }))
+      );
+      setPrioridades(
+        (prioRes.data ?? []).map((p) => ({
+          id: p.id,
+          descricao: p.descricao,
+          valor: Number(p.valor),
+          prioridade: p.prioridade as Prioridade["prioridade"],
+          concluida: p.concluida,
+        }))
+      );
+      setLoading(false);
+    };
+
+    loadData();
+  }, [householdId]);
+
+  // CRUD helpers
+  const addMeta = useCallback(
+    async (meta: Omit<Meta, "id">) => {
+      if (!householdId) return;
+      const { data, error } = await supabase
+        .from("metas")
+        .insert({
+          household_id: householdId,
+          nome: meta.nome,
+          valor_meta: meta.valorMeta,
+          valor_atual: meta.valorAtual,
+          rendimento: meta.rendimento,
+        })
+        .select()
+        .single();
+      if (!error && data) {
+        setMetas((prev) => [
+          ...prev,
+          { id: data.id, nome: data.nome, valorMeta: Number(data.valor_meta), valorAtual: Number(data.valor_atual), rendimento: Number(data.rendimento) },
+        ]);
+      }
+    },
+    [householdId]
+  );
+
+  const updateMeta = useCallback(
+    async (meta: Meta) => {
+      await supabase
+        .from("metas")
+        .update({ nome: meta.nome, valor_meta: meta.valorMeta, valor_atual: meta.valorAtual, rendimento: meta.rendimento })
+        .eq("id", meta.id);
+      setMetas((prev) => prev.map((m) => (m.id === meta.id ? meta : m)));
+    },
+    []
+  );
+
+  const deleteMeta = useCallback(async (id: string) => {
+    await supabase.from("metas").delete().eq("id", id);
+    setMetas((prev) => prev.filter((m) => m.id !== id));
+  }, []);
+
+  const addLancamento = useCallback(
+    async (l: Omit<Lancamento, "id">) => {
+      if (!householdId) return;
+      const { data, error } = await supabase
+        .from("lancamentos")
+        .insert({ household_id: householdId, descricao: l.descricao, valor: l.valor, categoria: l.categoria, mes: l.mes })
+        .select()
+        .single();
+      if (!error && data) {
+        setLancamentos((prev) => [
+          ...prev,
+          { id: data.id, descricao: data.descricao, valor: Number(data.valor), categoria: data.categoria as Lancamento["categoria"], mes: data.mes },
+        ]);
+      }
+    },
+    [householdId]
+  );
+
+  const deleteLancamento = useCallback(async (id: string) => {
+    await supabase.from("lancamentos").delete().eq("id", id);
+    setLancamentos((prev) => prev.filter((l) => l.id !== id));
+  }, []);
+
+  const addParcelamento = useCallback(
+    async (p: Omit<Parcelamento, "id">) => {
+      if (!householdId) return;
+      const { data, error } = await supabase
+        .from("parcelamentos")
+        .insert({
+          household_id: householdId,
+          descricao: p.descricao,
+          valor_total: p.valorTotal,
+          parcelas: p.parcelas,
+          parcelas_pagas: p.parcelasPagas,
+          valor_parcela: p.valorParcela,
+        })
+        .select()
+        .single();
+      if (!error && data) {
+        setParcelamentos((prev) => [
+          ...prev,
+          {
+            id: data.id,
+            descricao: data.descricao,
+            valorTotal: Number(data.valor_total),
+            parcelas: data.parcelas,
+            parcelasPagas: data.parcelas_pagas,
+            valorParcela: Number(data.valor_parcela),
+          },
+        ]);
+      }
+    },
+    [householdId]
+  );
+
+  const updateParcelamento = useCallback(async (p: Parcelamento) => {
+    await supabase
+      .from("parcelamentos")
+      .update({ parcelas_pagas: p.parcelasPagas })
+      .eq("id", p.id);
+    setParcelamentos((prev) => prev.map((x) => (x.id === p.id ? p : x)));
+  }, []);
+
+  const deleteParcelamento = useCallback(async (id: string) => {
+    await supabase.from("parcelamentos").delete().eq("id", id);
+    setParcelamentos((prev) => prev.filter((p) => p.id !== id));
+  }, []);
+
+  const addPrioridade = useCallback(
+    async (p: Omit<Prioridade, "id">) => {
+      if (!householdId) return;
+      const { data, error } = await supabase
+        .from("prioridades")
+        .insert({ household_id: householdId, descricao: p.descricao, valor: p.valor, prioridade: p.prioridade, concluida: p.concluida })
+        .select()
+        .single();
+      if (!error && data) {
+        setPrioridades((prev) => [
+          ...prev,
+          { id: data.id, descricao: data.descricao, valor: Number(data.valor), prioridade: data.prioridade as Prioridade["prioridade"], concluida: data.concluida },
+        ]);
+      }
+    },
+    [householdId]
+  );
+
+  const updatePrioridade = useCallback(async (p: Prioridade) => {
+    await supabase.from("prioridades").update({ concluida: p.concluida }).eq("id", p.id);
+    setPrioridades((prev) => prev.map((x) => (x.id === p.id ? p : x)));
+  }, []);
+
+  const deletePrioridade = useCallback(async (id: string) => {
+    await supabase.from("prioridades").delete().eq("id", id);
+    setPrioridades((prev) => prev.filter((p) => p.id !== id));
   }, []);
 
   // Computed values for selected month
-  const lancamentosMes = data.lancamentos.filter((l) => l.mes === data.mesSelecionado);
+  const lancamentosMes = lancamentos.filter((l) => l.mes === mesSelecionado);
   const entradas = lancamentosMes.filter((l) => l.categoria === "entrada").reduce((s, l) => s + l.valor, 0);
   const dizimos = lancamentosMes.filter((l) => l.categoria === "dizimo").reduce((s, l) => s + l.valor, 0);
   const contasFixas = lancamentosMes.filter((l) => l.categoria === "conta_fixa").reduce((s, l) => s + l.valor, 0);
@@ -112,8 +249,13 @@ export function useFinanceData() {
   const saldo = entradas - totalSaidas;
 
   return {
-    data,
-    update,
+    metas,
+    lancamentos,
+    parcelamentos,
+    prioridades,
+    mesSelecionado,
+    setMesSelecionado,
+    loading,
     lancamentosMes,
     entradas,
     dizimos,
@@ -122,6 +264,17 @@ export function useFinanceData() {
     variaveis,
     totalSaidas,
     saldo,
+    addMeta,
+    updateMeta,
+    deleteMeta,
+    addLancamento,
+    deleteLancamento,
+    addParcelamento,
+    updateParcelamento,
+    deleteParcelamento,
+    addPrioridade,
+    updatePrioridade,
+    deletePrioridade,
   };
 }
 
@@ -140,8 +293,4 @@ export const CATEGORIAS: Record<string, string> = {
 
 export function formatCurrency(value: number): string {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
-}
-
-export function genId(): string {
-  return Math.random().toString(36).substring(2, 10);
 }
