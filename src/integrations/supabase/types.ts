@@ -14,13 +14,235 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      households: {
+        Row: {
+          created_at: string
+          id: string
+          nome: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          nome?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          nome?: string
+        }
+        Relationships: []
+      }
+      lancamentos: {
+        Row: {
+          categoria: string
+          created_at: string
+          descricao: string
+          household_id: string
+          id: string
+          mes: number
+          updated_at: string
+          valor: number
+        }
+        Insert: {
+          categoria: string
+          created_at?: string
+          descricao: string
+          household_id: string
+          id?: string
+          mes: number
+          updated_at?: string
+          valor?: number
+        }
+        Update: {
+          categoria?: string
+          created_at?: string
+          descricao?: string
+          household_id?: string
+          id?: string
+          mes?: number
+          updated_at?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lancamentos_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      metas: {
+        Row: {
+          created_at: string
+          household_id: string
+          id: string
+          nome: string
+          rendimento: number
+          updated_at: string
+          valor_atual: number
+          valor_meta: number
+        }
+        Insert: {
+          created_at?: string
+          household_id: string
+          id?: string
+          nome: string
+          rendimento?: number
+          updated_at?: string
+          valor_atual?: number
+          valor_meta?: number
+        }
+        Update: {
+          created_at?: string
+          household_id?: string
+          id?: string
+          nome?: string
+          rendimento?: number
+          updated_at?: string
+          valor_atual?: number
+          valor_meta?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "metas_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      parcelamentos: {
+        Row: {
+          created_at: string
+          descricao: string
+          household_id: string
+          id: string
+          parcelas: number
+          parcelas_pagas: number
+          updated_at: string
+          valor_parcela: number
+          valor_total: number
+        }
+        Insert: {
+          created_at?: string
+          descricao: string
+          household_id: string
+          id?: string
+          parcelas?: number
+          parcelas_pagas?: number
+          updated_at?: string
+          valor_parcela?: number
+          valor_total?: number
+        }
+        Update: {
+          created_at?: string
+          descricao?: string
+          household_id?: string
+          id?: string
+          parcelas?: number
+          parcelas_pagas?: number
+          updated_at?: string
+          valor_parcela?: number
+          valor_total?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "parcelamentos_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prioridades: {
+        Row: {
+          concluida: boolean
+          created_at: string
+          descricao: string
+          household_id: string
+          id: string
+          prioridade: string
+          updated_at: string
+          valor: number
+        }
+        Insert: {
+          concluida?: boolean
+          created_at?: string
+          descricao: string
+          household_id: string
+          id?: string
+          prioridade: string
+          updated_at?: string
+          valor?: number
+        }
+        Update: {
+          concluida?: boolean
+          created_at?: string
+          descricao?: string
+          household_id?: string
+          id?: string
+          prioridade?: string
+          updated_at?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prioridades_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          display_name: string | null
+          household_id: string | null
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          household_id?: string | null
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          household_id?: string | null
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_user_household_id: { Args: { _user_id: string }; Returns: string }
     }
     Enums: {
       [_ in never]: never
